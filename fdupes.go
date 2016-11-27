@@ -78,53 +78,58 @@ func main() {
 		logger.Fatal("", err)
 	}
 
-	createListOfCandidates(func(size int64, candidates [][]string) {
-		logger.Info(" checking candidates with size: %d\n", size)
+	pipeline := []func(bundle CandidatesBundle) CandidatesBundle{
+		selectCandidateWithSameProperties,
+		selectCandidateOfSameFileType,
+		selectCandidateSameFirst4k,
+		selectBigCandidatesSameHashBlocks,
+		selectCandidateSameHash,
+		doLinkingOfCandidates,
+	}
 
-		candidates = selectCandidateWithSameProperties(candidates)
-		if len(candidates) == 0 {
-			return
-		}
-		candidates = selectCandidateOfSameFileType(candidates)
-		if len(candidates) == 0 {
-			return
-		}
-		candidates = selectCandidateSameFirst4k(candidates)
-		if len(candidates) == 0 {
-			return
-		}
+	createListOfCandidates(func(bundle CandidatesBundle) {
+		logger.Info(" checking candidates with size: %d\n", bundle.filesize)
 
-		if size > 10 * 1024 * 1024 {
-			candidates = selectCandidateSame4kBlocks(candidates)
-			if len(candidates) == 0 {
+		for _, step := range pipeline {
+			bundle = step(bundle)
+			if bundle.isEmpty() {
 				return
 			}
 		}
-
-		candidates = selectCandidateSameHash(candidates)
-		if len(candidates) == 0 {
-			return
-		}
-
-		doLinkingOfCandidates(candidates)
 	})
 }
 
-func doLinkingOfCandidates(candidates [][]string) [][]string {
-	for _, pair := range candidates {
-		replaceDupesWithHardLinks(pair[0], pair[1])
-	}
-	return [][]string{}
+type CandidatesBundle struct {
+	filesize   int64
+	candidates [][]string
 }
 
-func selectCandidateOfSameFileType(candidates [][]string) [][]string {
+func (cb *CandidatesBundle) isEmpty() bool{
+	return len(cb.candidates) == 0
+}
+
+func selectBigCandidatesSameHashBlocks(bundle CandidatesBundle) CandidatesBundle {
+	if bundle.filesize > 10 * 1024 * 1024 {
+		bundle = selectCandidateSame4kBlocks(bundle)
+	}
+	return bundle
+}
+
+func doLinkingOfCandidates(bundle CandidatesBundle) CandidatesBundle {
+	for _, pair := range bundle.candidates {
+		replaceDupesWithHardLinks(pair[0], pair[1])
+	}
+	return CandidatesBundle{}
+}
+
+func selectCandidateOfSameFileType(bundle CandidatesBundle) CandidatesBundle {
 	newCandidates := make([][]string, 0)
-	for _, pair := range candidates {
+	for _, pair := range bundle.candidates {
 		if filepath.Ext(pair[0]) == filepath.Ext(pair[1]) {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return newCandidates
+	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
 func replaceDupesWithHardLinks(path1, path2 string) {
@@ -191,11 +196,11 @@ func getSysStat(path string) (*syscall.Stat_t, error) {
 	return stat, nil
 }
 
-func selectCandidateWithSameProperties(candidates [][]string) [][]string {
+func selectCandidateWithSameProperties(bundle CandidatesBundle) CandidatesBundle {
 	logger.Info("   filtering candidates with same properties ... \n")
 
 	newCandidates := make([][]string, 0)
-	for _, pair := range candidates {
+	for _, pair := range bundle.candidates {
 		stat1, err1 := getSysStat(pair[0])
 		stat2, err2 := getSysStat(pair[1])
 
@@ -242,13 +247,13 @@ func selectCandidateWithSameProperties(candidates [][]string) [][]string {
 
 		newCandidates = append(newCandidates, pair)
 	}
-	return newCandidates
+	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
-func selectCandidateSameFirst4k(candidates [][]string) [][]string {
+func selectCandidateSameFirst4k(bundle CandidatesBundle) CandidatesBundle {
 	logger.Info("   filtering candidates with same first 4k hash\n")
 	newCandidates := make([][]string, 0)
-	for index, pair := range candidates {
+	for _, pair := range bundle.candidates {
 		h1, err1 := hashFirst4K(pair[0])
 		h2, err2 := hashFirst4K(pair[1])
 
@@ -263,16 +268,16 @@ func selectCandidateSameFirst4k(candidates [][]string) [][]string {
 		}
 
 		if bytes.Equal(h1, h2) {
-			newCandidates = append(newCandidates, candidates[index])
+			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return newCandidates
+	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
-func selectCandidateSame4kBlocks(candidates [][]string) [][]string {
+func selectCandidateSame4kBlocks(bundle CandidatesBundle) CandidatesBundle {
 	logger.Debug("   filtering candidates with same 4k blocks hash\n")
 	newCandidates := make([][]string, 0)
-	for _, pair := range candidates {
+	for _, pair := range bundle.candidates {
 		path1 := pair[0]
 		file1, err := os.Open(path1)
 		if err != nil {
@@ -332,14 +337,14 @@ func selectCandidateSame4kBlocks(candidates [][]string) [][]string {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return newCandidates
+	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
-func selectCandidateSameHash(candidates [][]string) [][]string {
+func selectCandidateSameHash(bundle CandidatesBundle) CandidatesBundle {
 	logger.Info("   filtering candidates with same hash ... \n")
 	newCandidates := make([][]string, 0)
 	hashCache := make(map[string][]byte)
-	for index, pair := range candidates {
+	for _, pair := range bundle.candidates {
 		var h1, h2 []byte
 		var err1, err2 error
 
@@ -373,10 +378,10 @@ func selectCandidateSameHash(candidates [][]string) [][]string {
 		}
 
 		if bytes.Equal(h1, h2) {
-			newCandidates = append(newCandidates, candidates[index])
+			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return newCandidates
+	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
 func hashAt(file *os.File, blocksize int64) ([]byte, error) {
@@ -427,7 +432,7 @@ func hashFile(path string) ([]byte, error) {
 	return algo.Sum(nil), nil
 }
 
-func createListOfCandidates(candidatesHandler func(filesize int64, candidates [][]string)) {
+func createListOfCandidates(candidatesHandler func(bundle CandidatesBundle)) {
 	logger.Info("create list of candidates ... ")
 
 	counter := 0
@@ -448,6 +453,6 @@ func createListOfCandidates(candidatesHandler func(filesize int64, candidates []
 				newCandidates = append(newCandidates, []string{list[i], list[j]})
 			}
 		}
-		candidatesHandler(size, newCandidates)
+		candidatesHandler(CandidatesBundle{filesize:size, candidates:newCandidates})
 	}
 }
