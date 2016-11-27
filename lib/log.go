@@ -5,12 +5,12 @@ import "log"
 type LogLevel int
 
 const (
-	DEBUG LogLevel = iota
-	INFO = iota
-	WARN = iota
-	ERROR = iota
-	FATAL = iota
-	FORMAT = "%-7s "
+	DEBUG  LogLevel = iota
+	INFO            = iota
+	WARN            = iota
+	ERROR           = iota
+	FATAL           = iota
+	FORMAT          = "%-7s "
 )
 
 type Log struct {
@@ -27,8 +27,8 @@ func NewLog() *Log {
 		4: "FATAL",
 	}
 	return &Log{
-		level:INFO,
-		MESSAGES:MESSAGES,
+		level:    INFO,
+		MESSAGES: MESSAGES,
 	}
 }
 
@@ -45,7 +45,7 @@ func (l *Log) log(level LogLevel, format string, a ...interface{}) {
 				args = append(args, value)
 			}
 		}
-		log.Printf(FORMAT + format, args...)
+		log.Printf(FORMAT+format, args...)
 	}
 }
 func (l *Log) Fatal(format string, a ...interface{}) {

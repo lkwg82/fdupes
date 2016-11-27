@@ -8,21 +8,20 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"fmt"
+	"github.com/lkwg82/fdupes/lib"
+	"hash"
 	"io"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
-	"hash"
-	"github.com/lkwg82/fdupes/lib"
-	"log"
-	"runtime"
 )
 
 // TODO check mtime and ctime
-
 
 var fileSizeMap = make(map[int64][]string)
 var candidateCount = 0
@@ -56,7 +55,7 @@ func walkTheTree(path string, info os.FileInfo, err error) error {
 	}
 
 	isHidden := func(path string) bool {
-		return strings.Contains(path, string(filepath.Separator) + ".")
+		return strings.Contains(path, string(filepath.Separator)+".")
 	}
 
 	if isHidden(path) {
@@ -118,7 +117,7 @@ func (cb *CandidatesBundle) isEmpty() bool {
 }
 
 func filterBigCandidatesByHashBlocks(bundle CandidatesBundle) CandidatesBundle {
-	if bundle.filesize > 10 * 1024 * 1024 {
+	if bundle.filesize > 10*1024*1024 {
 		bundle = selectCandidateSame4kBlocks(bundle)
 	}
 	return bundle
@@ -137,7 +136,7 @@ func filterCandidateByFileType(bundle CandidatesBundle) CandidatesBundle {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
+	return CandidatesBundle{filesize: bundle.filesize, candidates: newCandidates}
 }
 
 func replaceDupesWithHardLinks(path1, path2 string) {
@@ -255,7 +254,7 @@ func filterCandidateByFilesystemProperties(bundle CandidatesBundle) CandidatesBu
 
 		newCandidates = append(newCandidates, pair)
 	}
-	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
+	return CandidatesBundle{filesize: bundle.filesize, candidates: newCandidates}
 }
 
 func filterCandidateByFirst4k(bundle CandidatesBundle) CandidatesBundle {
@@ -279,7 +278,7 @@ func filterCandidateByFirst4k(bundle CandidatesBundle) CandidatesBundle {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
+	return CandidatesBundle{filesize: bundle.filesize, candidates: newCandidates}
 }
 
 func selectCandidateSame4kBlocks(bundle CandidatesBundle) CandidatesBundle {
@@ -351,7 +350,7 @@ func selectCandidateSame4kBlocks(bundle CandidatesBundle) CandidatesBundle {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
+	return CandidatesBundle{filesize: bundle.filesize, candidates: newCandidates}
 }
 
 func filterCandidateByHash(bundle CandidatesBundle) CandidatesBundle {
@@ -395,7 +394,7 @@ func filterCandidateByHash(bundle CandidatesBundle) CandidatesBundle {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
-	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
+	return CandidatesBundle{filesize: bundle.filesize, candidates: newCandidates}
 }
 
 func hashAt(file *os.File, blocksize int64) ([]byte, error) {
@@ -422,7 +421,7 @@ func hashFirst4K(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	length := int64(math.Min(float64(4 * 1024), float64(stat.Size())))
+	length := int64(math.Min(float64(4*1024), float64(stat.Size())))
 	data := make([]byte, length)
 	if _, err := file.ReadAt(data, 0); err != nil {
 		return nil, err
@@ -437,7 +436,7 @@ func hashFile(path string) ([]byte, error) {
 	}
 	defer file.Close()
 
-	reader := bufio.NewReaderSize(file, 4 * 1024 * 1024)
+	reader := bufio.NewReaderSize(file, 4*1024*1024)
 	logger.Debug(" hashing %s", path)
 	algo := hashAlgo()
 	if _, err := io.Copy(algo, reader); err != nil {
@@ -467,6 +466,6 @@ func processListOfSameFilesizeCandidates(candidatesHandler func(bundle Candidate
 				newCandidates = append(newCandidates, []string{list[i], list[j]})
 			}
 		}
-		candidatesHandler(CandidatesBundle{filesize:size, candidates:newCandidates})
+		candidatesHandler(CandidatesBundle{filesize: size, candidates: newCandidates})
 	}
 }
