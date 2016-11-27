@@ -9,7 +9,6 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -17,75 +16,16 @@ import (
 	"syscall"
 	"time"
 	"hash"
+	"github.com/lkwg82/fdupes/lib"
+	"log"
 )
 
 // TODO hidden files
 
-type logLevel int
-
-const (
-	DEBUG logLevel = iota
-	INFO = iota
-	WARN = iota
-	ERROR = iota
-	FATAL = iota
-	FORMAT = "%-7s "
-)
-
-type Log struct {
-	level    logLevel
-	MESSAGES map[int]string
-}
-
-func NewLog() *Log {
-	MESSAGES := map[int]string{
-		0: "DEBUG",
-		1: "INFO",
-		2: "WARN",
-		3: "ERROR",
-		4: "FATAL",
-	}
-	return &Log{
-		level:INFO,
-		MESSAGES:MESSAGES,
-	}
-}
-
-func (l *Log) SetLevel(level logLevel) {
-	l.level = level
-}
-
-func (l *Log) log(level logLevel, format string, a ...interface{}) {
-	if l.level <= level {
-		args := make([]interface{}, 0)
-		args = append(args, l.MESSAGES[int(level)])
-		if a != nil {
-			for _, value := range a {
-				args = append(args, value)
-			}
-		}
-		log.Printf(FORMAT + format, args...)
-	}
-}
-func (l *Log) Fatal(format string, a ...interface{}) {
-	l.log(FATAL, format, a...)
-}
-func (l *Log) Error(format string, a ...interface{}) {
-	l.log(ERROR, format, a...)
-}
-func (l *Log) Warn(format string, a ...interface{}) {
-	l.log(WARN, format, a...)
-}
-func (l *Log) Info(format string, a ...interface{}) {
-	l.log(INFO, format, a...)
-}
-func (l *Log) Debug(format string, a ...interface{}) {
-	l.log(DEBUG, format, a...)
-}
 
 var fileSizeMap = make(map[int64][]string)
 var candidateCount = 0
-var logger = NewLog()
+var logger = lib.NewLog()
 
 func walkTheTree(path string, info os.FileInfo, err error) error {
 
@@ -124,7 +64,7 @@ func walkTheTree(path string, info os.FileInfo, err error) error {
 func main() {
 	dir := "/backup/wirt.lgohlke.de/backup_from_others"
 
-	logger.SetLevel(WARN)
+	logger.SetLevel(lib.WARN)
 
 	logger.Info("walking the tree ...")
 	if err := filepath.Walk(dir, walkTheTree); err != nil {
