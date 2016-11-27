@@ -18,9 +18,11 @@ import (
 	"hash"
 	"github.com/lkwg82/fdupes/lib"
 	"log"
+	"runtime"
 )
 
 // TODO hidden files
+// TODO check mtime and ctime
 
 
 var fileSizeMap = make(map[int64][]string)
@@ -62,6 +64,11 @@ func walkTheTree(path string, info os.FileInfo, err error) error {
 }
 
 func main() {
+	if runtime.GOOS != "linux" {
+		fmt.Println("sorry, need linux to run")
+		os.Exit(1)
+	}
+
 	dir := "/backup/wirt.lgohlke.de/backup_from_others"
 
 	logger.SetLevel(lib.WARN)
@@ -137,7 +144,6 @@ func replaceDupesWithHardLinks(path1, path2 string) {
 	}
 
 	if info1.Ino == info2.Ino {
-		// skip same
 		return
 	}
 
