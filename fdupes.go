@@ -21,7 +21,6 @@ import (
 	"runtime"
 )
 
-// TODO hidden files
 // TODO check mtime and ctime
 
 
@@ -35,14 +34,17 @@ func walkTheTree(path string, info os.FileInfo, err error) error {
 		fmt.Println(err)
 		return nil
 	}
+
 	if info.IsDir() {
-		// skip directory
 		return nil
 	}
 
-	linkedPath, _ := filepath.EvalSymlinks(path)
-	if linkedPath != path {
-		// skip symlinks
+	isSymlink := func(path string) bool {
+		linkedPath, _ := filepath.EvalSymlinks(path)
+		return linkedPath != path
+	}
+
+	if isSymlink(path) {
 		return nil
 	}
 
@@ -50,7 +52,14 @@ func walkTheTree(path string, info os.FileInfo, err error) error {
 
 	filesize := info.Size()
 	if filesize == 0 {
-		// skip empty files
+		return nil
+	}
+
+	isHidden := func(path string) bool {
+		return strings.Contains(path, string(filepath.Separator) + ".")
+	}
+
+	if isHidden(path) {
 		return nil
 	}
 
@@ -79,15 +88,14 @@ func main() {
 	}
 
 	pipeline := []func(bundle CandidatesBundle) CandidatesBundle{
-		selectCandidateWithSameProperties,
-		selectCandidateOfSameFileType,
-		selectCandidateSameFirst4k,
-		selectBigCandidatesSameHashBlocks,
-		selectCandidateSameHash,
-		doLinkingOfCandidates,
+		filterCandidateByFilesystemProperties,
+		filterCandidateByFileType,
+		filterCandidateByFirst4k,
+		filterBigCandidatesByHashBlocks,
+		filterCandidateByHash,
 	}
 
-	createListOfCandidates(func(bundle CandidatesBundle) {
+	processListOfSameFilesizeCandidates(func(bundle CandidatesBundle) {
 		logger.Info(" checking candidates with size: %d\n", bundle.filesize)
 
 		for _, step := range pipeline {
@@ -96,6 +104,7 @@ func main() {
 				return
 			}
 		}
+		doLinkingOfCandidates(bundle)
 	})
 }
 
@@ -104,25 +113,24 @@ type CandidatesBundle struct {
 	candidates [][]string
 }
 
-func (cb *CandidatesBundle) isEmpty() bool{
+func (cb *CandidatesBundle) isEmpty() bool {
 	return len(cb.candidates) == 0
 }
 
-func selectBigCandidatesSameHashBlocks(bundle CandidatesBundle) CandidatesBundle {
+func filterBigCandidatesByHashBlocks(bundle CandidatesBundle) CandidatesBundle {
 	if bundle.filesize > 10 * 1024 * 1024 {
 		bundle = selectCandidateSame4kBlocks(bundle)
 	}
 	return bundle
 }
 
-func doLinkingOfCandidates(bundle CandidatesBundle) CandidatesBundle {
+func doLinkingOfCandidates(bundle CandidatesBundle) {
 	for _, pair := range bundle.candidates {
 		replaceDupesWithHardLinks(pair[0], pair[1])
 	}
-	return CandidatesBundle{}
 }
 
-func selectCandidateOfSameFileType(bundle CandidatesBundle) CandidatesBundle {
+func filterCandidateByFileType(bundle CandidatesBundle) CandidatesBundle {
 	newCandidates := make([][]string, 0)
 	for _, pair := range bundle.candidates {
 		if filepath.Ext(pair[0]) == filepath.Ext(pair[1]) {
@@ -196,7 +204,7 @@ func getSysStat(path string) (*syscall.Stat_t, error) {
 	return stat, nil
 }
 
-func selectCandidateWithSameProperties(bundle CandidatesBundle) CandidatesBundle {
+func filterCandidateByFilesystemProperties(bundle CandidatesBundle) CandidatesBundle {
 	logger.Info("   filtering candidates with same properties ... \n")
 
 	newCandidates := make([][]string, 0)
@@ -250,7 +258,7 @@ func selectCandidateWithSameProperties(bundle CandidatesBundle) CandidatesBundle
 	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
-func selectCandidateSameFirst4k(bundle CandidatesBundle) CandidatesBundle {
+func filterCandidateByFirst4k(bundle CandidatesBundle) CandidatesBundle {
 	logger.Info("   filtering candidates with same first 4k hash\n")
 	newCandidates := make([][]string, 0)
 	for _, pair := range bundle.candidates {
@@ -340,7 +348,7 @@ func selectCandidateSame4kBlocks(bundle CandidatesBundle) CandidatesBundle {
 	return CandidatesBundle{filesize:bundle.filesize, candidates:newCandidates}
 }
 
-func selectCandidateSameHash(bundle CandidatesBundle) CandidatesBundle {
+func filterCandidateByHash(bundle CandidatesBundle) CandidatesBundle {
 	logger.Info("   filtering candidates with same hash ... \n")
 	newCandidates := make([][]string, 0)
 	hashCache := make(map[string][]byte)
@@ -432,7 +440,7 @@ func hashFile(path string) ([]byte, error) {
 	return algo.Sum(nil), nil
 }
 
-func createListOfCandidates(candidatesHandler func(bundle CandidatesBundle)) {
+func processListOfSameFilesizeCandidates(candidatesHandler func(bundle CandidatesBundle)) {
 	logger.Info("create list of candidates ... ")
 
 	counter := 0
