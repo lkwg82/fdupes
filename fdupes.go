@@ -55,7 +55,7 @@ func walkTheTree(path string, info os.FileInfo, err error) error {
 	}
 
 	isHidden := func(path string) bool {
-		return strings.Contains(path, string(filepath.Separator)+".")
+		return strings.Contains(path, string(filepath.Separator) + ".")
 	}
 
 	if isHidden(path) {
@@ -117,7 +117,7 @@ func (cb *CandidatesBundle) isEmpty() bool {
 }
 
 func filterBigCandidatesByHashBlocks(bundle CandidatesBundle) CandidatesBundle {
-	if bundle.filesize > 10*1024*1024 {
+	if bundle.filesize > 10 * 1024 * 1024 {
 		bundle = selectCandidateSame4kBlocks(bundle)
 	}
 	return bundle
@@ -179,15 +179,11 @@ func replaceDupesWithHardLinks(path1, path2 string) {
 	logger.Info("create new link %s -> %s", short(newName), short(path1))
 	if err := os.Link(path1, newName); err != nil {
 		logger.Error("%s", err)
-		//stat,_ := getSysStat(filepath.Base(path1))
-
-		//log.Fatalf("ERROR: %s", err)
 	}
 
 	logger.Info("rename %s -> %s", short(newName), short(path2))
 	if err := os.Rename(newName, path2); err != nil {
 		logger.Error("ERROR: %s", err)
-		//log.Fatalf("ERROR: %s", err)
 	}
 }
 
@@ -421,7 +417,7 @@ func hashFirst4K(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	length := int64(math.Min(float64(4*1024), float64(stat.Size())))
+	length := int64(math.Min(float64(4 * 1024), float64(stat.Size())))
 	data := make([]byte, length)
 	if _, err := file.ReadAt(data, 0); err != nil {
 		return nil, err
@@ -436,7 +432,7 @@ func hashFile(path string) ([]byte, error) {
 	}
 	defer file.Close()
 
-	reader := bufio.NewReaderSize(file, 4*1024*1024)
+	reader := bufio.NewReaderSize(file, 4 * 1024 * 1024)
 	logger.Debug(" hashing %s", path)
 	algo := hashAlgo()
 	if _, err := io.Copy(algo, reader); err != nil {
