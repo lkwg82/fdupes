@@ -106,11 +106,15 @@ func main() {
 			return
 		}
 
-		for _, pair := range candidates {
-			replaceDupesWithHardLinks(pair[0], pair[1])
-		}
+		doLinkingOfCandidates(candidates)
 	})
+}
 
+func doLinkingOfCandidates(candidates [][]string) [][]string {
+	for _, pair := range candidates {
+		replaceDupesWithHardLinks(pair[0], pair[1])
+	}
+	return [][]string{}
 }
 
 func selectCandidateOfSameFileType(candidates [][]string) [][]string {
