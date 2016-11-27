@@ -284,8 +284,8 @@ func filterCandidateByFirst4k(bundle CandidatesBundle) CandidatesBundle {
 
 func selectCandidateSame4kBlocks(bundle CandidatesBundle) CandidatesBundle {
 	logger.Debug("   filtering candidates with same 4k blocks hash\n")
-	newCandidates := make([][]string, 0)
-	for _, pair := range bundle.candidates {
+
+	partialHash := func(pair []string) bool {
 		path1 := pair[0]
 		file1, err := os.Open(path1)
 		if err != nil {
@@ -341,7 +341,13 @@ func selectCandidateSame4kBlocks(bundle CandidatesBundle) CandidatesBundle {
 			logger.Debug("  offset %d, same:%s, blocksize:%d ", offset, sameHash, block)
 			logger.Debug("  offset %d, same:%s, blocksize:%d ", offset, sameHash, block)
 		}
-		if sameHash {
+
+		return sameHash
+	}
+
+	newCandidates := make([][]string, 0)
+	for _, pair := range bundle.candidates {
+		if partialHash(pair) {
 			newCandidates = append(newCandidates, pair)
 		}
 	}
